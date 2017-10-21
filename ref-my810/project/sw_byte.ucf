@@ -1,0 +1,8 @@
+NET "sw_byte[0]" LOC = P2;
+NET "sw_byte[1]" LOC = P4;
+NET "sw_byte[2]" LOC = P9;
+NET "sw_byte[3]" LOC = P53;
+NET "sw_byte[4]" LOC = P57;
+NET "sw_byte[5]" LOC = P60;
+NET "sw_byte[6]" LOC = P62;
+NET "sw_byte[7]" LOC = P65;

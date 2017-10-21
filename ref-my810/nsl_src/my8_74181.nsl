@@ -1,0 +1,52 @@
+/*
+ * vim: set filetype=nsl :
+ */
+#include "my8_74181_h.nsl"
+
+#define USE_NPC74181             // exchange here to use Mark Hansen's 74181 Verilog model
+//#define USE_MARK_HANSEN_74181  // ( http://www.eecs.umich.edu/~jhayes/iscas/74181.html )
+
+#ifdef USE_NPC74181
+#include "npc74181_h.nsl"
+#endif
+
+#ifdef USE_MARK_HANSEN_74181
+declare Circuit74181 interface {
+    input S[4], A[4], B[4], M, CNb ;
+    output F[4], X, Y, CN4b, AEB ;
+}
+#endif
+
+module my8_74181 {
+#ifdef USE_NPC74181
+    npc74181 the_npc74181 ;
+
+    the_npc74181.s = ~s ;
+    the_npc74181.a = ~a ;
+    the_npc74181.b = ~b ;
+    the_npc74181.m = ~m ;
+    the_npc74181.ci = ci ;
+
+    o = ~the_npc74181.o ;
+    cp = ~the_npc74181.cp ;
+    cg = ~the_npc74181.cg ;
+    co = the_npc74181.co ;
+    zf = the_npc74181.zf ;
+#endif
+
+#ifdef USE_MARK_HANSEN_74181
+    Circuit74181 the_74181 ;
+
+    the_74181.S = s ;
+    the_74181.A = a ;
+    the_74181.B = b ;
+    the_74181.M = m ;
+    the_74181.CNb = ci ;
+
+    o = the_74181.F ;
+    cp = the_74181.X ;
+    cg = the_74181.Y ;
+    co = the_74181.CN4b ;
+    zf = the_74181.AEB ;
+#endif
+}

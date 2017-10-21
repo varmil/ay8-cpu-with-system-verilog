@@ -1,0 +1,336 @@
+/*
+ * Note:
+ *   Set "Sync reset" option, when synthesis for Xilinx FPGA
+ *   Clear "Sync reset" option, when synthesis for simutation by Icarus Verilog simulation
+ */
+#include "my8_alu_h.nsl"
+
+#define MEM_READ 0b1
+#define MEM_WRITE 0b0
+
+declare my8_core {
+  inout adbus[8] ;
+  input sw_byte[8] ;
+  output mem_rW ;
+  output acc_out[8] ;
+  func_out mem_do(mem_rW, adbus) ;
+}
+module my8_core {
+  reg boot_fin = 0b0 ;
+  reg pc[8], acc[8], buff[8], ir[8] ;
+  reg cf, zf ;
+  func_self do_decode_fetch ;
+
+  my8_alu alu ;
+
+  proc_name boot, dec_exec, fetch ;
+
+  /*
+   * common actions
+   */
+
+  if (!boot_fin && !boot) {
+    boot() ;
+  }
+
+  acc_out = acc ;
+
+  /*
+   * func
+   */
+
+  func do_decode_fetch {
+    dec_exec() ;
+    fetch() ;
+  }
+
+  /*
+   * proc
+   */
+
+  // boot sequencer
+  proc boot {
+    acc := 0x00 ;  // for simulation. because the value of (X ^ ~X) is X, we needs initialize
+    pc := 0x00 ;
+    buff := 0x00 ;
+    cf := 0b0 ;
+    zf := 0b0 ;
+    do_decode_fetch() ;
+    boot_fin := 0b1 ;
+    finish() ;
+  }
+
+  proc fetch {
+    state_name st0, st1 ;
+
+    state st0 {
+      mem_do(MEM_READ, pc) ;
+      alu.do(ALU_MODE_ARITHOP, ALU_ARITH_INC, pc, buff, ALU_CARRY_ON) ;
+      pc := alu.o ;
+      goto st1 ;
+    }
+
+    state st1 {
+      buff := adbus ;
+      goto st0 ;
+      finish() ;
+    }
+  }
+
+  proc dec_exec {
+    state_name decode ;
+    state_name ex_logic_0 ;
+    state_name ex_logic_imm, ex_logic_wait, ex_do_logic ;
+    state_name ex_logic_ref, ex_logic_ref_1, ex_logic_ref_2 ;
+    state_name ex_arith_0 ;
+    state_name ex_arith_wait, ex_do_arith ;
+    state_name ex_arith_1, ex_arith_1_ref, ex_arith_1_ref_2 ;
+    state_name ex_do_jump, ex_do_branch ;
+    state_name ex_store, ex_store_1, ex_store_2, ex_store_3, ex_store_4 ;
+    state_name ex_rorc1 ;
+    state_name ex_readsw ;
+    state_name ex_vjump ;
+
+    // decoder
+    state decode {
+      ir := buff ;
+      any {
+        buff[7:4] == 0x0 :
+          if ((buff[3:0] == ALU_LOGIC_NOP) ||
+              (buff[3:0] == ALU_LOGIC_ALLZERO) ||
+              (buff[3:0] == ALU_LOGIC_ALLONE) ||
+              (buff[3:0] == ALU_LOGIC_NOT)) goto ex_logic_0 ;
+          else goto ex_logic_imm ;
+        buff[7:4] == 0x1 : goto ex_logic_ref ;
+        buff[7:3] == {0x2, 0b0} : goto ex_arith_0 ;
+        buff[7:3] == {0x2, 0b1} : goto ex_arith_1 ;
+        buff == 0x38 : goto ex_store ;
+        buff == 0x39 : goto ex_readsw ;
+        buff == 0x3a : goto ex_rorc1 ;
+        buff == 0x3e : goto ex_vjump ;
+        buff == 0x3f : finish() ;
+        buff[7:6] == 0b01 : goto ex_do_jump ;
+        buff[7] == 0b1 : goto ex_do_branch ;
+        else : finish() ;  // undef
+      }
+    }
+
+    /*
+     * logical functions
+     */
+
+    state ex_logic_0 {
+      alu.do(ALU_MODE_LOGICFUNC, ir[3:0], acc, buff, ALU_CARRY_OFF) ;
+      acc := alu.o ;
+      if (ir[3:0] != ALU_LOGIC_NOP)
+        zf := alu.zf ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    state ex_logic_imm {
+      // operand reading wait
+      fetch.invoke() ;
+      goto ex_logic_wait ;
+    }
+
+    state ex_logic_wait {
+      // ALU is using by fetch for increment PC
+      goto ex_do_logic ;
+    }
+
+    state ex_do_logic {
+      alu.do(ALU_MODE_LOGICFUNC, ir[3:0], acc, buff, ALU_CARRY_OFF) ;
+      acc := alu.o ;
+      zf := alu.zf ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    state ex_logic_ref {
+      // operand reading wait
+      goto ex_logic_ref_1 ;
+    }
+
+    state ex_logic_ref_1 {
+      mem_do(MEM_READ, buff) ;
+      goto ex_logic_ref_2 ;
+    }
+
+    state ex_logic_ref_2 {
+      buff := adbus ;
+      fetch.invoke() ;
+      goto ex_logic_wait ;
+    }
+
+    /*
+     * arithmetic operations
+     */
+
+    state ex_arith_0 {
+      any {
+        ir[2:0] == 0b000 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_INC, acc, buff, cf) ;
+        ir[2:0] == 0b001 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_DEC, acc, buff, cf) ;
+        ir[2:0] == 0b010 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_DBL, acc, buff, cf) ;
+        ir[2:0] == 0b011 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_EX, acc, buff, cf) ;
+        ir[2:0] == 0b100 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_INC, acc, buff, ALU_CARRY_ON) ;
+        ir[2:0] == 0b101 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_DEC, acc, buff, ALU_BORROW_ON) ;
+        ir[2:0] == 0b110 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_DBL, acc, buff, ALU_CARRY_ON) ;
+        // undef ir[2:0] == 0b111
+      }
+      acc := alu.o ;
+      cf := alu.co ;
+      zf := alu.zf ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    state ex_arith_1 {
+      // operand reading wait
+      if (ir[2] == 0b0) {
+        fetch.invoke() ;
+        goto ex_arith_wait ;
+      }
+      else goto ex_arith_1_ref ;
+    }
+
+    state ex_arith_wait {
+      // ALU is using by fetch for increment PC
+      goto ex_do_arith ;
+    }
+
+    state ex_do_arith {
+      any {
+        ir[1:0] == 0b00 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_ADD, acc, buff, cf) ;
+        ir[1:0] == 0b01 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_SUB, acc, buff, cf) ;
+        ir[1:0] == 0b10 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_ADD, acc, buff, ALU_CARRY_OFF) ;
+        ir[1:0] == 0b11 : alu.do(ALU_MODE_ARITHOP, ALU_ARITH_SUB, acc, buff, ALU_BORROW_OFF) ;
+      }
+      acc := alu.o ;
+      cf := alu.co ;
+      zf := alu.zf ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    state ex_arith_1_ref {
+      mem_do(MEM_READ, buff) ;
+      goto ex_arith_1_ref_2 ;
+    }
+
+    state ex_arith_1_ref_2 {
+      buff := adbus ;
+      fetch.invoke() ;
+      goto ex_arith_wait ;
+    }
+
+    /*
+     * jump
+     */
+
+    state ex_do_jump {
+      // buff still have opcode!
+      // (Because fetch is parallelly running, buff is overwritten in next clock.)
+      alu.do(ALU_MODE_ARITHOP, ALU_ARITH_ADD, pc, {3{buff[5]}, buff[4:0]}, ALU_CARRY_OFF) ;
+      pc := alu.o ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    /*
+     * branches
+     */
+
+    state ex_do_branch {
+      if (((ir[6:5] == 0b00) &&  cf) ||
+          ((ir[6:5] == 0b01) && ~cf) ||
+          ((ir[6:5] == 0b10) &&  zf) ||
+          ((ir[6:5] == 0b11) && ~zf)) {
+        alu.do(ALU_MODE_ARITHOP, ALU_ARITH_ADD, pc, {4{buff[4]}, buff[3:0]}, ALU_CARRY_OFF) ;
+        pc := alu.o ;
+      }
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    /*
+     * store to memory
+     */
+
+    state ex_store {
+      // operand reading wait
+      goto ex_store_1 ;
+    }
+
+    state ex_store_1 {
+      mem_do(MEM_WRITE, buff) ;
+      goto ex_store_2 ;
+    }
+
+    state ex_store_2 {
+      adbus = acc ;
+      fetch.invoke() ;
+      goto ex_store_3 ;
+    }
+
+    state ex_store_3 {
+      // reading next instruction
+      goto ex_store_4 ;
+    }
+
+    state ex_store_4 {
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    /*
+     * rotate right
+     */
+
+    state ex_rorc1 {
+      acc := {cf, acc[7:1]} ;
+      cf := acc[0] ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    /*
+     * read switch
+     */
+
+    state ex_readsw {
+      acc := sw_byte ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+
+    /*
+     * vector jump
+     */
+
+    state ex_vjump {
+      pc := sw_byte ;
+
+      goto decode ;
+      do_decode_fetch() ;
+      finish() ;
+    }
+  }
+}

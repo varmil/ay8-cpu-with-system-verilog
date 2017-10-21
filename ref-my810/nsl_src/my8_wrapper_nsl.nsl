@@ -1,0 +1,118 @@
+declare bcount {
+    input cin ;
+    output cout, o ;
+}
+module bcount {
+    reg cnt = 0b0 ;
+
+    cout = cnt & cin ;
+    o = cnt ;
+    cnt := cnt ^ cin ;
+}
+
+declare count2 {
+    input cin ;
+    output cout, o ;
+}
+module count2 {
+    bcount bc0, bc1 ;
+
+    bc0.cin = cin ;
+    bc1.cin = bc0.cout ;
+    cout = bc1.cout ;
+    o = bc1.o ;
+}
+
+declare count4 {
+    input cin ;
+    output cout, o ;
+}
+module count4 {
+    count2 cnt2_0, cnt2_1 ;
+
+    cnt2_0.cin = cin ;
+    cnt2_1.cin = cnt2_0.cout ;
+    cout = cnt2_1.cout ;
+    o = cnt2_1.o ;
+}
+
+declare count8 {
+    input cin ;
+    output cout, o ;
+}
+module count8 {
+    count4 cnt4_0, cnt4_1 ;
+
+    cnt4_0.cin = cin ;
+    cnt4_1.cin = cnt4_0.cout ;
+    cout = cnt4_1.cout ;
+    o = cnt4_1.o ;
+}
+
+declare sevenseg_decoder {
+    input hex[4] ;
+    output led7[7] ;
+}
+module sevenseg_decoder {
+    any {              // abcdefg
+    hex == 0x0 : led7 = 0b1111110 ;
+    hex == 0x1 : led7 = 0b0110000 ;
+    hex == 0x2 : led7 = 0b1101101 ;
+    hex == 0x3 : led7 = 0b1111001 ;
+    hex == 0x4 : led7 = 0b0110011 ;
+    hex == 0x5 : led7 = 0b1011011 ;
+    hex == 0x6 : led7 = 0b1011111 ;
+    hex == 0x7 : led7 = 0b1110000 ;
+    hex == 0x8 : led7 = 0b1111111 ;
+    hex == 0x9 : led7 = 0b1111011 ;
+    hex == 0xa : led7 = 0b1110111 ;
+    hex == 0xb : led7 = 0b0011111 ;
+    hex == 0xc : led7 = 0b0001101 ;
+    hex == 0xd : led7 = 0b0111101 ;
+    hex == 0xe : led7 = 0b1001111 ;
+    hex == 0xf : led7 = 0b1000111 ;
+    }
+}
+
+declare my8 {
+    input sw_byte[8] ;
+    output acc_out[8] ;
+}
+
+declare my8_wrapper_nsl {
+    input sw_byte[8] ;
+    output sevenseg_select, sevenseg[7] ;
+}
+module my8_wrapper_nsl {
+    reg sevenseg_select_reg = 0b0 ;
+
+    // counter (clock divider)
+    count8 count0_7, count8_15, count16_23 ;
+
+    my8 the_my8 ;
+
+    // 7seg
+    sevenseg_decoder the_sevenseg_decoder ;
+
+    /*
+     * common actions
+     */
+
+    // static connection
+    the_my8.sw_byte = sw_byte ;
+
+    // counter
+    count0_7.cin = 0b1 ;
+    count8_15.cin = count0_7.cout ;
+    count16_23.cin = count8_15.cout ;
+
+    // output select
+    the_sevenseg_decoder.hex = if (~sevenseg_select_reg) the_my8.acc_out[3:0] else the_my8.acc_out[7:4] ;
+
+    // LED driving
+    sevenseg_select = sevenseg_select_reg ;
+    sevenseg = the_sevenseg_decoder.led7 ;
+
+    // flip bright LED
+    if (count8_15.cout) sevenseg_select_reg := ~sevenseg_select_reg ;
+}

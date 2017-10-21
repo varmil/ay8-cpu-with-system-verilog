@@ -1,0 +1,31 @@
+/*
+ * vim: set filetype=nsl :
+ */
+#include "my8_alu_h.nsl"
+
+#include "my8_74181_h.nsl"
+
+module my8_alu {
+    wire a_[8], b_[8] ;
+    my8_74181 alu_hi, alu_lo ;
+
+    func do {
+        a_ = ~a ;
+        b_ = ~b ;
+
+        alu_lo.m = ~m ;
+        alu_lo.s = ~s ;
+        alu_lo.a = a_[3:0] ;
+        alu_lo.b = b_[3:0] ;
+        alu_lo.ci = ci ;
+        alu_hi.m = ~m ;
+        alu_hi.s = ~s ;
+        alu_hi.a = a_[7:4] ;
+        alu_hi.b = b_[7:4] ;
+        alu_hi.ci = alu_lo.co ;
+
+        o = ~({alu_hi.o, alu_lo.o}) ;
+        zf = alu_hi.zf & alu_lo.zf ;
+        co = alu_hi.co ;
+    }
+}

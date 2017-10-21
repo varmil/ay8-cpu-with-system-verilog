@@ -1,0 +1,7 @@
+/*
+ * vim: set filetype=nsl :
+ */
+declare my8_74181 {
+    input m, s[4], a[4], b[4], ci ;
+    output o[4], zf, co, cp, cg ;
+}

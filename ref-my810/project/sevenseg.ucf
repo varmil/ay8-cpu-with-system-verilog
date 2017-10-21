@@ -1,0 +1,9 @@
+NET "sevenseg_dig1" LOC = P47;
+NET "sevenseg_dig2" LOC = P49;
+NET "sevenseg[6]" LOC = P18;  # a
+NET "sevenseg[5]" LOC = P26;  # b
+NET "sevenseg[4]" LOC = P33;  # c
+NET "sevenseg[3]" LOC = P40;  # d
+NET "sevenseg[2]" LOC = P35;  # e
+NET "sevenseg[1]" LOC = P23;  # f
+NET "sevenseg[0]" LOC = P16;  # g
