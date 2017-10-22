@@ -37,7 +37,7 @@ module Memory(IMemory intf);
     intf.rW <= HIGH_IMPEDANCE;
   endfunction
 
-  always_ff @ (posedge intf.CLK, negedge intf.RST) begin
+  always @ (posedge intf.CLK, negedge intf.RST) begin
     if (intf.RST == 0) begin
       clearState();
     end
