@@ -6,7 +6,7 @@ module memory_sim;
   reg adbus_active;
 
   IMemory intf(CLK, RST, uniBus);
-  Memory mem(intf);
+  Memory memory(intf);
 
   always #5 CLK = ~CLK;
 
@@ -16,6 +16,12 @@ module memory_sim;
 
   assign uniBus = (adbus_active) ? adbus_reg : {8{1'bz}};
 
+  initial begin
+    memory.mem[0] = 8'h00;
+    memory.mem[1] = 8'h11;
+    memory.mem[2] = 8'h12;
+    memory.mem[3] = 8'h13;
+  end
 
   initial begin
     CLK  = 0;
@@ -23,6 +29,11 @@ module memory_sim;
     #10  RST = 1;
 
     #5;
+
+    // READ
+    intf.exec(1, 8'h01);
+
+    #20;
 
     // WRITE
     intf.exec(0, 8'hff);
@@ -59,3 +70,5 @@ module memory_sim;
   end
 
 endmodule
+
+// = {8'h00, 8'h01, 8'h02, 8'h03}

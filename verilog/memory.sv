@@ -21,7 +21,7 @@ endinterface
 
 
 
-module Memory(IMemory foo);
+module Memory(IMemory intf);
   // typedef enum logic[3:0] { WRITE, READ, READY, IDLE } stateEnum;
   // stateEnum state;
 
@@ -33,12 +33,12 @@ module Memory(IMemory foo);
 
   function void clearState();
     shouldOutput = 1'b0;
-    foo.isRunning <= foo.NOT_RUNNING;
-    foo.rW <= HIGH_IMPEDANCE;
+    intf.isRunning <= intf.NOT_RUNNING;
+    intf.rW <= HIGH_IMPEDANCE;
   endfunction
 
-  always_ff @ (posedge foo.CLK, negedge foo.RST) begin
-    if (foo.RST == 0) begin
+  always_ff @ (posedge intf.CLK, negedge intf.RST) begin
+    if (intf.RST == 0) begin
       clearState();
     end
     else begin
@@ -49,7 +49,7 @@ module Memory(IMemory foo);
                       clearState();
                     end
         writeState : begin
-                      mem[foo.addressBuff] <= foo.uniBus;
+                      mem[intf.addressBuff] <= intf.uniBus;
                       clearState();
                     end
         default : ;
@@ -60,8 +60,8 @@ module Memory(IMemory foo);
     end
   end
 
-  assign state = { foo.isRunning, foo.rW };
-  assign readState = { foo.NOW_RUNNING, foo.READ };
-  assign writeState = { foo.NOW_RUNNING, foo.WRITE };
-  assign foo.uniBus = (shouldOutput) ? mem[foo.addressBuff] : { 8{HIGH_IMPEDANCE} };
+  assign state = { intf.isRunning, intf.rW };
+  assign readState = { intf.NOW_RUNNING, intf.READ };
+  assign writeState = { intf.NOW_RUNNING, intf.WRITE };
+  assign intf.uniBus = (shouldOutput) ? mem[intf.addressBuff] : { 8{HIGH_IMPEDANCE} };
 endmodule
