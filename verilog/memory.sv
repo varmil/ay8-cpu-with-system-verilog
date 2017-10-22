@@ -1,61 +1,67 @@
-interface IMemory (input logic CLK, input logic RST);
-  logic isRunning = 0;
-  logic triggered = 0;
-  logic rW;
-  logic [7:0] adbus;
+interface IMemory (input logic CLK, input logic RST, inout wire [7:0] uniBus);
+  parameter bit NOT_RUNNING = 0;
+  parameter bit NOW_RUNNING = 1;
 
-  task exec(logic rWArg, logic [7:0] adbusArg);
+  parameter bit READ = 1;
+  parameter bit WRITE = 0;
+
+  logic isRunning = NOT_RUNNING;
+  logic rW;
+  logic [7:0] addressBuff;
+
+  function void exec(logic rWArg, logic [7:0] address);
     if (isRunning) return;
 
-    triggered <= 1;
+    isRunning <= NOW_RUNNING;
     rW <= rWArg;
-    adbus <= adbusArg;
-  endtask
-
+    addressBuff <= address;
+  endfunction
 endinterface
 
 
 
 
 module Memory(IMemory foo);
-  typedef enum logic[3:0] { WRITE, READ, READY, IDLE } stateEnum;
-  stateEnum state;
+  // typedef enum logic[3:0] { WRITE, READ, READY, IDLE } stateEnum;
+  // stateEnum state;
+
+  parameter HIGH_IMPEDANCE = 1'bZ;
 
   logic [7:0] mem[255:0];
-  logic [7:0] addressBuff;
-  logic test;
+  logic [1:0] state, readState, writeState;
+  logic shouldOutput;
+
+  function void clearState();
+    shouldOutput = 1'b0;
+    foo.isRunning <= foo.NOT_RUNNING;
+    foo.rW <= HIGH_IMPEDANCE;
+  endfunction
 
   always_ff @ (posedge foo.CLK, negedge foo.RST) begin
     if (foo.RST == 0) begin
-      state <= IDLE;
+      clearState();
     end
     else begin
+      // ノンブロッキング代入する前に条件分岐を終えてる感じ
       case (state)
-        // IDLE : ;
-        IDLE : begin
-                // ノンブロッキング代入する前に条件分岐を終えてる感じ
-                if (test) begin
-                  foo.isRunning <= 1;
-                  addressBuff <= foo.adbus;
-                  state <= (foo.rW) ? READ : WRITE;
-                end
-              end
-        READ: begin
-                // do nothing
-                foo.isRunning <= 0;
-                foo.triggered <= 0;
-                state <= IDLE;
-              end
-        WRITE: begin
-                mem[addressBuff] <= foo.adbus;
-                foo.isRunning <= 0;
-                foo.triggered <= 0;
-                state <= IDLE;
-              end
+        readState : begin
+                      shouldOutput <= 1'b1;
+                      clearState();
+                    end
+        writeState : begin
+                      mem[foo.addressBuff] <= foo.uniBus;
+                      clearState();
+                    end
+        default : ;
       endcase
+
+      // output for uniBus should continue 1 cycle
+      if (shouldOutput) shouldOutput <= ~shouldOutput;
     end
   end
 
-  assign test = foo.triggered;
-
+  assign state = { foo.isRunning, foo.rW };
+  assign readState = { foo.NOW_RUNNING, foo.READ };
+  assign writeState = { foo.NOW_RUNNING, foo.WRITE };
+  assign foo.uniBus = (shouldOutput) ? mem[foo.addressBuff] : { 8{HIGH_IMPEDANCE} };
 endmodule
