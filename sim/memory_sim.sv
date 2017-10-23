@@ -2,8 +2,8 @@ module memory_sim;
   reg CLK, RST;
   wire [7:0] uniBus;
 
-  reg [7:0] adbus_reg;
-  reg adbus_active;
+  // reg [7:0] adbus_reg;
+  // reg adbus_active;
 
   IMemory intf(CLK, RST, uniBus);
   Memory memory(intf);
