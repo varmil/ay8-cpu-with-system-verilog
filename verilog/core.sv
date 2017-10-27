@@ -1,4 +1,4 @@
-module NopMachine(IMemory intf);
+module Core(IMemory intf);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
   logic [7:0] pc = 8'b0000_0000;
