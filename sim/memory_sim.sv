@@ -7,7 +7,7 @@ module memory_sim;
 
   IMemory intf(CLK, RST, uniBus);
   Memory memory(intf);
-  NopMachine nopMachine(intf);
+  Core core(intf);
 
   always #5 CLK = ~CLK;
 
@@ -29,15 +29,18 @@ module memory_sim;
     RST  = 0;
     #10  RST = 1;
 
-    #100;
+    // #100;
 
-    // #5;
+    #5;
 
     // // READ
     // intf.exec(1, 8'h01);
+    core.fetch.execute();
     //
-    // #20;
+    #20;
     //
+    // core.fetch.execute();
+
     // // WRITE
     // intf.exec(0, 8'hff);
     // #10;
