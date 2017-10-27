@@ -10,13 +10,13 @@ module ALU(Mode, Selector, A, B, CarryIn, F, CarryOut, ZeroFlag);
 
   wire [3:0] notSelector;
   wire cp0, cg0, cp1, cg1;
-  wire InternalCarry, InternalZeroFlag0, InternalZeroFlag1;
+  wire InternalZeroFlag[1:0];
+  wire InternalCarry;
 
-  Circuit74181 alu1(notSelector, A[3:0], B[3:0], Mode, CarryIn, F[3:0], cp0, cg0, InternalCarry, InternalZeroFlag0);
-  Circuit74181 alu2(notSelector, A[7:4], B[7:4], Mode, InternalCarry, F[7:4], cp1, cg1, CarryOut, InternalZeroFlag1);
+  Circuit74181 alu1(notSelector, A[3:0], B[3:0], Mode, CarryIn, F[3:0], cp0, cg0, InternalCarry, InternalZeroFlag[0]);
+  Circuit74181 alu2(notSelector, A[7:4], B[7:4], Mode, InternalCarry, F[7:4], cp1, cg1, CarryOut, InternalZeroFlag[1]);
 
   assign notSelector = ~Selector;
-
-  assign ZeroFlag = InternalZeroFlag0 & InternalZeroFlag1;
+  or ZFGate(ZeroFlag, InternalZeroFlag[0], InternalZeroFlag[1]);
 
 endmodule
