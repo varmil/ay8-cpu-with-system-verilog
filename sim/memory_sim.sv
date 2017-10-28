@@ -39,7 +39,7 @@ module memory_sim;
     //
     #20;
     //
-    // core.fetch.execute();
+    core.fetch.execute();
 
     // // WRITE
     // intf.exec(0, 8'hff);
