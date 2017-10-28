@@ -2,18 +2,11 @@ module memory_sim;
   reg CLK, RST;
   wire [7:0] uniBus;
 
-  // reg [7:0] adbus_reg;
-  // reg adbus_active;
-
   IMemory intf(uniBus);
   Memory memory(CLK, RST, intf);
   Core core(CLK, RST, intf);
 
   always #5 CLK = ~CLK;
-
-  // always @ (posedge CLK) begin
-  //   #1 adbus_active = 1'b0;
-  // end
 
   // assign uniBus = (adbus_active) ? adbus_reg : {8{1'bz}};
 
@@ -36,10 +29,12 @@ module memory_sim;
     // // READ
     // intf.takeIn(1, 8'h01);
     core.fetch.execute();
+    core.decode_exec.execute();
     //
     #20;
     //
     core.fetch.execute();
+    core.decode_exec.execute();
 
     // // WRITE
     // intf.takeIn(0, 8'hff);
@@ -72,7 +67,7 @@ module memory_sim;
   end
 
   initial begin
-    $monitor("CLK=%d, RST=%d, intf.isRunning=%d", CLK, RST, intf.isRunning);
+    // $monitor("CLK=%d, RST=%d, intf.isRunning=%d", CLK, RST, intf.isRunning);
   end
 
 endmodule
