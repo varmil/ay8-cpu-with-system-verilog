@@ -34,25 +34,15 @@ module myalu_sim;
 
   reg CLK, RST;
 
-  reg Mode;
-  reg [7:0] Foo;
-  reg [3:0] Selector;
-  reg [7:0] A, B;
-  reg CarryIn;
-
-  reg [7:0] F;
-  reg CarryOut;
-  reg ZeroFlag;
-
-  ALU ALU(Mode, Selector, A, B, CarryIn, F, CarryOut, ZeroFlag);
+  IALU aluIntf();
+  ALU alu(aluIntf);
 
   always #5 CLK = ~CLK;
 
   initial begin
-    A = 8'b1111_0001;
-    B = 8'b0000_1111;
-    Foo = A + B;
-    CarryIn = ALU_CARRY_LOW;
+    aluIntf.A = 8'b1111_0001;
+    aluIntf.B = 8'b0000_1111;
+    aluIntf.CarryIn = ALU_CARRY_LOW;
   end
 
   initial begin
@@ -65,78 +55,74 @@ module myalu_sim;
     // 両フラグともActive Low
 
     #5; // F = A minus 1 (ARITH)
-    A = 8'b0000_0000;
-    Mode = ALU_MODE_ARITHOP;
-    Selector = ALU_ARITH_DEC;
-    CarryIn = ALU_CARRY_HIGH;
+    aluIntf.A = 8'b0000_0000;
+    aluIntf.Mode = ALU_MODE_ARITHOP;
+    aluIntf.Selector = ALU_ARITH_DEC;
+    aluIntf.CarryIn = ALU_CARRY_HIGH;
 
-    // 25
-    #10; // F = A AND B
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_AND;
-
-    #10; // F = A XOR B
-    A = 8'b0010_0001;
-    B = 8'b0000_1111;
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_XOR;
-
-    #10; // F = A plus B (-> carry)
-    A = 8'b1111_0001;
-    B = 8'b0000_1111;
-    Mode = ALU_MODE_ARITHOP;
-    Selector = ALU_ARITH_ADD;
-    CarryIn = ALU_CARRY_LOW;
+    // // 25
+    // #10; // F = A AND B
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_AND;
+    //
+    // #10; // F = A XOR B
+    // A = 8'b0010_0001;
+    // B = 8'b0000_1111;
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_XOR;
+    //
+    // #10; // F = A plus B (-> carry)
+    // A = 8'b1111_0001;
+    // B = 8'b0000_1111;
+    // Mode = ALU_MODE_ARITHOP;
+    // Selector = ALU_ARITH_ADD;
+    // CarryIn = ALU_CARRY_LOW;
 
     // 55
     #10; // F = A plus 1
-    A = 8'b1111_1110;
-    B = 8'b0000_0000;
-    Mode = ALU_MODE_ARITHOP;
-    Selector = ALU_ARITH_INC;
-    CarryIn = ALU_CARRY_LOW;
+    aluIntf.execute(ALU_MODE_ARITHOP, ALU_ARITH_INC, 8'b1110_1100, 8'b0000_0000, ALU_CARRY_LOW);
 
-    #10; // F = A minus B
-    A = 8'b0001_0000;
-    B = 8'b0000_0001;
-    Mode = ALU_MODE_ARITHOP;
-    Selector = ALU_ARITH_SUB;
-    CarryIn = ALU_CARRY_LOW;
-
-    #10; // F = A minus B (-> bollow)
-    A = 8'b0000_0001;
-    B = 8'b0000_0011;
-    Mode = ALU_MODE_ARITHOP;
-    Selector = ALU_ARITH_SUB;
-    CarryIn = ALU_CARRY_LOW;
-
-    #10; // F = 0
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_ALLZERO;
-
-    #10; // F = 1
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_ALLONE;
-
-    // 105
-    #10; // F = A OR B
-    A = 8'b0000_0100;
-    B = 8'b1111_0100;
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_OR;
-
-    #10; // F = A
-    A = 8'b0001_0001;
-    Mode = ALU_MODE_LOGICFUNC;
-    Selector = ALU_LOGIC_NOP;
-    CarryIn = ALU_CARRY_HIGH;
+    // #10; // F = A minus B
+    // A = 8'b0001_0000;
+    // B = 8'b0000_0001;
+    // Mode = ALU_MODE_ARITHOP;
+    // Selector = ALU_ARITH_SUB;
+    // CarryIn = ALU_CARRY_LOW;
+    //
+    // #10; // F = A minus B (-> bollow)
+    // A = 8'b0000_0001;
+    // B = 8'b0000_0011;
+    // Mode = ALU_MODE_ARITHOP;
+    // Selector = ALU_ARITH_SUB;
+    // CarryIn = ALU_CARRY_LOW;
+    //
+    // #10; // F = 0
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_ALLZERO;
+    //
+    // #10; // F = 1
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_ALLONE;
+    //
+    // // 105
+    // #10; // F = A OR B
+    // A = 8'b0000_0100;
+    // B = 8'b1111_0100;
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_OR;
+    //
+    // #10; // F = A
+    // A = 8'b0001_0001;
+    // Mode = ALU_MODE_LOGICFUNC;
+    // Selector = ALU_LOGIC_NOP;
+    // CarryIn = ALU_CARRY_HIGH;
 
 
     #20 $finish;
   end
 
   initial begin
-    $monitor("CLK=%d, RST=%d, F=%d", CLK, RST, F);
+    $monitor("CLK=%d, RST=%d, F=%d", CLK, RST, aluIntf.F);
   end
 
 endmodule

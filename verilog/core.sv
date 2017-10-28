@@ -37,22 +37,23 @@ interface ICore();
   logic [7:0] buffer = 8'b0000_0000;
   logic [7:0] acc    = 8'b0000_0000;
   logic [7:0] ir     = 8'b0000_0000;
+  logic  CarryReg    = HIGH_IMPEDANCE;
+  logic  ZFReg       = HIGH_IMPEDANCE;
 
-  function void takeIn();
-  endfunction
 endinterface
 
 // boot後の最初の2サイクルはbufferの初期値、つまりNOPを実行する。その後pcゼロ番地の命令へ。
-module Core(input logic CLK, input logic RST, IMemory memIntf);
+module Core(input logic CLK, input logic RST, IMemory memIntf, IALU aluIntf);
   ICore coreIntf();
-  fetch fetch(CLK, RST, memIntf, coreIntf);
-  decode_exec decode_exec(CLK, RST, memIntf, coreIntf);
+
+  fetch fetch(CLK, RST, memIntf, coreIntf, aluIntf);
+  decode_exec decode_exec(CLK, RST, memIntf, coreIntf, aluIntf);
 endmodule
 
 
 
 
-module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
+module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
   logic trigger;
@@ -104,7 +105,8 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
       unique case (1'b1)
         next[ST0] : begin
           memIntf.takeIn(memIntf.READ, coreIntf.pc);
-          coreIntf.pc <= coreIntf.pc + 1;
+          aluIntf.execute(coreIntf.ALU_MODE_ARITHOP, coreIntf.ALU_ARITH_INC, coreIntf.pc, coreIntf.buffer, coreIntf.ALU_CARRY_LOW);
+          // coreIntf.pc <= coreIntf.pc + 1;
           trigger <= 0;
         end
         next[ST1] : begin
@@ -115,13 +117,19 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
     end
   end
 
+  // Assign ALU output to each register here
+  always_comb begin
+    if (state[ST0] == 1'b1 && aluIntf.A == coreIntf.pc)
+      coreIntf.pc = aluIntf.out.F;
+  end
+
   assign memIntf.uniBus = (next[ST0] == 1'b1) ? coreIntf.pc : { 8{HIGH_IMPEDANCE} };
 endmodule // fetch
 
 
 
 
-module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
+module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
   logic trigger;
@@ -137,7 +145,7 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
     EX_LOGIC_REF_1  = 7,
     EX_LOGIC_REF_2  = 8
   } state_index_t;
-  logic [3:0] state, next;
+  logic [3:0] state, current;
 
   function void execute();
     state <= DECODE;
@@ -147,27 +155,10 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
   always_ff @(posedge CLK, negedge RST) begin
     if (!RST) begin
       state       <= IDLE; // default assignment
-      // state[IDLE] <= 1'b1;
     end
-    // else
-    //   state       <= next;
+    else
+      current     <= state;
   end
-
-  // Combinational next state logic
-  // always_comb begin
-  //   next = '0;
-  //   unique case (1'b1)
-  //     state[IDLE] : begin
-  //       if (trigger) next[ST0] = 1'b1;
-  //       else next[IDLE] = 1'b1;
-  //     end
-  //     state[ST0]  : next[ST1]  = 1'b1;
-  //     state[ST1]  : begin
-  //       if (trigger) next[ST0] = 1'b1;
-  //       else next[IDLE] = 1'b1;
-  //     end
-  //   endcase
-  // end
 
   // Make output assignments
   always_ff @(posedge CLK, negedge RST) begin
@@ -201,10 +192,21 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf);
           endcase
         end // DECODE
 
-
+        EX_LOGIC_0: begin
+          aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
+          state
+        end // EX_LOGIC_0
 
         default: ;
       endcase
     end
   end
+
+  // Assign ALU output to each register here
+  always_comb begin
+    if (current == EX_LOGIC_0)
+      coreIntf.acc = aluIntf.out.F;
+      if (coreIntf.ir[3:0] != ALU_LOGIC_NOP) coreIntf.ZFReg = aluIntf.out.ZeroFlag;
+  end
+
 endmodule // decode_exec

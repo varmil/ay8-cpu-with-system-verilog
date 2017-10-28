@@ -2,9 +2,13 @@ module memory_sim;
   reg CLK, RST;
   wire [7:0] uniBus;
 
-  IMemory intf(uniBus);
-  Memory memory(CLK, RST, intf);
-  Core core(CLK, RST, intf);
+  IMemory memIntf(uniBus);
+  Memory memory(CLK, RST, memIntf);
+
+  IALU aluIntf();
+  ALU alu(aluIntf);
+
+  Core core(CLK, RST, memIntf, aluIntf);
 
   always #5 CLK = ~CLK;
 
@@ -27,17 +31,17 @@ module memory_sim;
     #5;
 
     // // READ
-    // intf.takeIn(1, 8'h01);
+    // memIntf.takeIn(1, 8'h01);
     core.fetch.execute();
     core.decode_exec.execute();
     //
     #20;
     //
-    core.fetch.execute();
-    core.decode_exec.execute();
+    // core.fetch.execute();
+    // core.decode_exec.execute();
 
     // // WRITE
-    // intf.takeIn(0, 8'hff);
+    // memIntf.takeIn(0, 8'hff);
     // #10;
     // adbus_reg = 8'haa;
     // adbus_active = 1'b1;
@@ -45,7 +49,7 @@ module memory_sim;
     // #10;
     //
     // // WRITE
-    // intf.takeIn(0, 8'hfe);
+    // memIntf.takeIn(0, 8'hfe);
     // #10;
     // adbus_reg = 8'hab;
     // adbus_active = 1'b1;
@@ -53,7 +57,7 @@ module memory_sim;
     // #10;
     //
     // // WRITE
-    // intf.takeIn(0, 8'hfd);
+    // memIntf.takeIn(0, 8'hfd);
     // #10;
     // adbus_reg = 8'hac;
     // adbus_active = 1'b1;
@@ -61,13 +65,13 @@ module memory_sim;
     // #20;
     //
     // // READ
-    // intf.takeIn(1, 8'hff);
+    // memIntf.takeIn(1, 8'hff);
 
     #50 $finish;
   end
 
   initial begin
-    // $monitor("CLK=%d, RST=%d, intf.isRunning=%d", CLK, RST, intf.isRunning);
+    // $monitor("CLK=%d, RST=%d, memIntf.isRunning=%d", CLK, RST, memIntf.isRunning);
   end
 
 endmodule
