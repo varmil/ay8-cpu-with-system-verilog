@@ -40,6 +40,14 @@ interface ICore();
   logic  CarryReg    = HIGH_IMPEDANCE;
   logic  ZFReg       = HIGH_IMPEDANCE;
 
+  // trigger
+  logic fetchTrigger = 0;
+  logic decodeTrigger = 0;
+  function void do_decode_fetch();
+    fetchTrigger <= 1;
+    decodeTrigger <= 1;
+  endfunction
+
 endinterface
 
 // boot後の最初の2サイクルはbufferの初期値、つまりNOPを実行する。その後pcゼロ番地の命令へ。
@@ -56,8 +64,6 @@ endmodule
 module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
-  logic trigger;
-
   enum {
     IDLE = 0,
     ST0  = 1,
@@ -66,7 +72,7 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
   logic [3:0] state, next;
 
   function void execute();
-    trigger <= 1'b1;
+    coreIntf.fetchTrigger <= 1'b1;
   endfunction
 
   // Sequential state transition
@@ -84,12 +90,12 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
     next = '0;
     unique case (1'b1)
       state[IDLE] : begin
-        if (trigger) next[ST0] = 1'b1;
+        if (coreIntf.fetchTrigger) next[ST0] = 1'b1;
         else next[IDLE] = 1'b1;
       end
       state[ST0]  : next[ST1]  = 1'b1;
       state[ST1]  : begin
-        if (trigger) next[ST0] = 1'b1;
+        if (coreIntf.fetchTrigger) next[ST0] = 1'b1;
         else next[IDLE] = 1'b1;
       end
       default: next[IDLE] = 1'b1;
@@ -107,7 +113,7 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
           memIntf.takeIn(memIntf.READ, coreIntf.pc);
           aluIntf.execute(coreIntf.ALU_MODE_ARITHOP, coreIntf.ALU_ARITH_INC, coreIntf.pc, coreIntf.buffer, coreIntf.ALU_CARRY_LOW);
           // coreIntf.pc <= coreIntf.pc + 1;
-          trigger <= 0;
+          coreIntf.fetchTrigger <= 0;
         end
         next[ST1] : begin
           coreIntf.buffer <= memIntf.uniBus;
@@ -134,7 +140,7 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
 
   logic trigger;
 
-  enum {
+  typedef enum logic [3:0] {
     IDLE            = 0,
     DECODE          = 1,
     EX_LOGIC_0      = 2,
@@ -145,9 +151,10 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     EX_LOGIC_REF_1  = 7,
     EX_LOGIC_REF_2  = 8
   } state_index_t;
-  logic [3:0] state, current;
+  state_index_t state, current;
 
   function void execute();
+    coreIntf.decodeTrigger <= 1;
     state <= DECODE;
   endfunction
 
@@ -165,8 +172,10 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     if (!RST) begin
     end
     else begin
-      unique case (state)
+      case (state)
         DECODE : begin
+          if (coreIntf.decodeTrigger) begin
+
           // cache instruction
           coreIntf.ir <= coreIntf.buffer;
 
@@ -190,11 +199,12 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
               state <= EX_LOGIC_0;
             end
           endcase
+          end
         end // DECODE
 
         EX_LOGIC_0: begin
           aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
-          state
+          coreIntf.do_decode_fetch();
         end // EX_LOGIC_0
 
         default: ;
@@ -206,7 +216,7 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
   always_comb begin
     if (current == EX_LOGIC_0)
       coreIntf.acc = aluIntf.out.F;
-      if (coreIntf.ir[3:0] != ALU_LOGIC_NOP) coreIntf.ZFReg = aluIntf.out.ZeroFlag;
+      if (coreIntf.ir[3:0] != coreIntf.ALU_LOGIC_NOP) coreIntf.ZFReg = aluIntf.out.ZeroFlag;
   end
 
 endmodule // decode_exec
