@@ -1,4 +1,4 @@
-interface IMemory (input logic CLK, input logic RST, inout wire [7:0] uniBus);
+interface IMemory (inout wire [7:0] uniBus);
   parameter bit NOT_RUNNING = 0;
   parameter bit NOW_RUNNING = 1;
 
@@ -9,7 +9,7 @@ interface IMemory (input logic CLK, input logic RST, inout wire [7:0] uniBus);
   logic rW;
   logic [7:0] addressBuff;
 
-  function void exec(logic rWArg, logic [7:0] address);
+  function void takeIn(logic rWArg, logic [7:0] address);
     if (isRunning) return;
 
     isRunning <= NOW_RUNNING;
@@ -21,7 +21,7 @@ endinterface
 
 
 
-module Memory(IMemory intf);
+module Memory(input logic CLK, input logic RST, IMemory intf);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
   logic [7:0] mem[255:0];
@@ -39,8 +39,8 @@ module Memory(IMemory intf);
   endfunction
 
   // Sequential state transition
-  always_ff @(posedge intf.CLK, negedge intf.RST) begin
-    if (!intf.RST) begin
+  always_ff @(posedge CLK, negedge RST) begin
+    if (!RST) begin
       state       <= '0; // default assignment
       state[IDLE] <= 1'b1;
     end
@@ -65,8 +65,8 @@ module Memory(IMemory intf);
   end
 
   // Make output assignments
-  always_ff @(posedge intf.CLK, negedge intf.RST) begin
-    if (!intf.RST) begin
+  always_ff @(posedge CLK, negedge RST) begin
+    if (!RST) begin
       clearState();
     end
     else begin

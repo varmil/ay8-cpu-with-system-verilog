@@ -5,9 +5,9 @@ module memory_sim;
   // reg [7:0] adbus_reg;
   // reg adbus_active;
 
-  IMemory intf(CLK, RST, uniBus);
-  Memory memory(intf);
-  Core core(intf);
+  IMemory intf(uniBus);
+  Memory memory(CLK, RST, intf);
+  Core core(CLK, RST, intf);
 
   always #5 CLK = ~CLK;
 
@@ -34,7 +34,7 @@ module memory_sim;
     #5;
 
     // // READ
-    // intf.exec(1, 8'h01);
+    // intf.takeIn(1, 8'h01);
     core.fetch.execute();
     //
     #20;
@@ -42,7 +42,7 @@ module memory_sim;
     core.fetch.execute();
 
     // // WRITE
-    // intf.exec(0, 8'hff);
+    // intf.takeIn(0, 8'hff);
     // #10;
     // adbus_reg = 8'haa;
     // adbus_active = 1'b1;
@@ -50,7 +50,7 @@ module memory_sim;
     // #10;
     //
     // // WRITE
-    // intf.exec(0, 8'hfe);
+    // intf.takeIn(0, 8'hfe);
     // #10;
     // adbus_reg = 8'hab;
     // adbus_active = 1'b1;
@@ -58,7 +58,7 @@ module memory_sim;
     // #10;
     //
     // // WRITE
-    // intf.exec(0, 8'hfd);
+    // intf.takeIn(0, 8'hfd);
     // #10;
     // adbus_reg = 8'hac;
     // adbus_active = 1'b1;
@@ -66,7 +66,7 @@ module memory_sim;
     // #20;
     //
     // // READ
-    // intf.exec(1, 8'hff);
+    // intf.takeIn(1, 8'hff);
 
     #50 $finish;
   end
