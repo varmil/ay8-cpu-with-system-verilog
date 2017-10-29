@@ -12,13 +12,13 @@ module memory_sim;
 
   always #5 CLK = ~CLK;
 
-  // assign uniBus = (adbus_active) ? adbus_reg : {8{1'bz}};
-
   initial begin
-    memory.mem[0] = 8'h10;
-    memory.mem[1] = 8'h11;
-    memory.mem[2] = 8'h12;
-    memory.mem[3] = 8'h13;
+    // ALL ZERO
+    memory.mem[0] = 8'h03;
+    // ALL ONE
+    memory.mem[1] = 8'h0c;
+    // memory.mem[2] = 8'h04;
+    // memory.mem[3] = 8'h05;
   end
 
   initial begin
@@ -36,9 +36,6 @@ module memory_sim;
     core.decode_exec.execute();
     //
     #20;
-    //
-    // core.fetch.execute();
-    // core.decode_exec.execute();
 
     // // WRITE
     // memIntf.takeIn(0, 8'hff);
