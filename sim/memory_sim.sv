@@ -13,9 +13,9 @@ module memory_sim;
   always #5 CLK = ~CLK;
 
   initial begin
-    // ALL ZERO
-    memory.mem[0] = 8'h03;
     // ALL ONE
+    memory.mem[0] = 8'h03;
+    // ALL ZERO
     memory.mem[1] = 8'h0c;
     // memory.mem[2] = 8'h04;
     // memory.mem[3] = 8'h05;
