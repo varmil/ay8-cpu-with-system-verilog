@@ -16,5 +16,5 @@ create original 8bit CPU with SystemVerilog !
 * 45 - 65
   * memory: read 8'h01 ram data --> uniBus
   * dataflow: store uniBus data to BufferRegister --> IRRegister
-  * ALU: do first IR (8'h00)
+  * ALU: do first IR (8'h00), store result to acc (ALL ONE)
   * PC++ --> uniBus
