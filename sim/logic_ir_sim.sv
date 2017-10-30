@@ -163,12 +163,21 @@ module logic_ir_sim;
 
     #5;
 
-    // TODO: Implement boot sequence in Core
-    core.coreIntf.do_decode_fetch();
+    // 15: start
+    // 25 - 45: first nop
+    // 75 - 115: the first result on acc
+    // 115 - 155; the second result on acc
 
-    #200;
+    #103;
 
-    #50 $finish;
+    // 118
+    for (int i=0; i<15; i++) begin
+      $write(" %x", core.coreIntf.acc);
+      #80;
+    end
+    $display("");
+
+    #10 $finish;
   end
 
   initial begin

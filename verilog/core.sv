@@ -62,6 +62,23 @@ module Core(input logic CLK, input logic RST, IMemory memIntf, IALU aluIntf);
   ICore coreIntf();
   fetch fetch(CLK, RST, memIntf, coreIntf, aluIntf);
   decode_exec decode_exec(CLK, RST, memIntf, coreIntf, aluIntf);
+
+  logic isBooted = 0;
+
+  always_ff @(posedge CLK, negedge RST) begin
+    if (!RST) begin
+      isBooted          <= 0;
+      coreIntf.pc       <= '0;
+      coreIntf.buffer   <= '0;
+      coreIntf.CarryReg <= 1;
+      coreIntf.ZFReg    <= 1;
+    end
+    else
+      if (!isBooted) begin
+        isBooted <= 1;
+        coreIntf.do_decode_fetch();
+      end
+  end
 endmodule
 
 
@@ -112,7 +129,6 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
   // Make output assignments
   always_ff @(posedge CLK, negedge RST) begin
     if (!RST) begin
-      coreIntf.pc <= 0;
     end
     else begin
       unique case (STATE_ENABLE)
