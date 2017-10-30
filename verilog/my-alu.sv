@@ -13,13 +13,13 @@ interface IALU();
 
   alu_out out;
 
-  function void execute(logic ModeArg, logic [3:0] SelectorArg, logic [7:0] AArg, logic [7:0] BArg, logic CarryInArg);
+  task execute(logic ModeArg, logic [3:0] SelectorArg, logic [7:0] AArg, logic [7:0] BArg, logic CarryInArg);
     Mode <= ModeArg;
     Selector <= SelectorArg;
     A <= AArg;
     B <= BArg;
     CarryIn <= CarryInArg;
-  endfunction
+  endtask
 endinterface
 
 module ALU(IALU intf);

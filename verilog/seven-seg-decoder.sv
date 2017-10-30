@@ -1,6 +1,6 @@
 // DE-10 Lite is ActiveLow
 // 8bit input --> two hex
-module SevenSegDecoder(input logic CLK, input logic RST, input logic [7:0] in, output logic [7:0] HEXHigh, output logic [7:0] HEXLow);
+module SevenSegDecoder(input logic [7:0] in, output logic [7:0] HEXHigh, output logic [7:0] HEXLow);
   always_comb begin
     case (in[3:0])
       4'h0 : HEXLow = 8'b1100_0000;

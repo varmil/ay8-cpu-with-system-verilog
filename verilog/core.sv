@@ -1,4 +1,4 @@
-interface ICore();
+interface ICore(input logic CLK);
   parameter HIGH_IMPEDANCE = 1'bZ;
 
   parameter ALU_MODE_LOGICFUNC = 1'b1;
@@ -36,32 +36,49 @@ interface ICore();
   logic [7:0] pc     = 8'b0000_0000;
   logic [7:0] buffer = 8'b0000_0000;
   logic [7:0] acc    = 8'b0000_0000;
-  logic [7:0] ir     = 8'b0000_0000;
+  logic [7:0] ir;
   logic  CarryReg    = HIGH_IMPEDANCE;
   logic  ZFReg       = HIGH_IMPEDANCE;
 
   // trigger
+  logic fetchWire;
+  logic decodeWire;
   logic fetchTrigger = 0;
+  logic fetchTrigger2 = 0;
   logic decodeTrigger = 0;
-  function void do_decode_fetch();
+  logic decodeTrigger2 = 0;
+
+  task do_decode_fetch();
     invoke_fetch();
     invoke_decode();
-  endfunction
-  function void invoke_fetch();
-    fetchTrigger <= 1'b1;
-  endfunction
-  function void invoke_decode();
-    decodeTrigger <= 1'b1;
-  endfunction
+  endtask
+  task invoke_fetch();
+    fetchTrigger <= 1;
+  endtask
+  task invoke_decode();
+    decodeTrigger <= 1;
+  endtask
+
+  // task do_decode_fetch_2();
+  //   fetchTrigger2 <= 1;
+  //   decodeTrigger2 <= 1;
+  // endtask
+
+  always_ff @(posedge CLK) begin
+    if (fetchTrigger) fetchTrigger <= 0;
+    if (decodeTrigger) decodeTrigger <= 0;
+  end
+
+  assign fetchWire = (fetchTrigger | fetchTrigger2);
+  assign decodeWire = (decodeTrigger | decodeTrigger2);
 
 
 endinterface
 
 // boot後の最初の2サイクルはbufferの初期値、つまりNOPを実行する。その後pcゼロ番地の命令へ。
-module Core(input logic CLK, input logic RST, IMemory memIntf, IALU aluIntf);
-  ICore coreIntf();
+module Core(input logic CLK, input logic RST, ICore coreIntf, IMemory memIntf, IALU aluIntf);
   fetch fetch(CLK, RST, memIntf, coreIntf, aluIntf);
-  decode_exec decode_exec(CLK, RST, memIntf, coreIntf, aluIntf);
+  decode_exec decode_exec(CLK, RST, coreIntf, aluIntf);
 
   logic isBooted = 0;
 
@@ -84,7 +101,7 @@ endmodule
 
 
 
-module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
+module fetch(input logic CLK, input logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
   parameter HIGH_IMPEDANCE = 1'bZ;
   parameter STATE_ENABLE = 1'b1;
 
@@ -95,15 +112,15 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
   } state_index_t;
   logic [3:0] state, next;
 
-  function void execute();
-    coreIntf.fetchTrigger <= STATE_ENABLE;
-  endfunction
+  // function void execute();
+  //   coreIntf.fetchTrigger = STATE_ENABLE;
+  // endfunction
 
   // IDLEへ戻るか、FETCHへ遷移するかを決める
-  function void toIdleIfNotTriggered();
-    if (coreIntf.fetchTrigger) next[ST0] = STATE_ENABLE;
-    else next[IDLE] = STATE_ENABLE;
-  endfunction
+  task toIdleIfNotTriggered();
+    if (coreIntf.fetchWire) next[ST0] <= STATE_ENABLE;
+    else next[IDLE] <= STATE_ENABLE;
+  endtask
 
   // Sequential state transition
   always_ff @(posedge CLK, negedge RST) begin
@@ -149,14 +166,11 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
     end
   end
 
-  always_ff @(posedge CLK, negedge RST) begin
-    if (coreIntf.fetchTrigger) coreIntf.fetchTrigger <= 0;
-  end
-
   // Assign ALU output to each register here
-  always_comb begin
+  always_latch begin
     if (state[ST0] == STATE_ENABLE && aluIntf.A == coreIntf.pc)
       coreIntf.pc = aluIntf.out.F;
+	 else coreIntf.pc = coreIntf.pc;
   end
 
   assign memIntf.uniBus = (next[ST0] == STATE_ENABLE) ? coreIntf.pc : { 8{HIGH_IMPEDANCE} };
@@ -165,7 +179,7 @@ endmodule // fetch
 
 
 
-module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf);
+module decode_exec(input logic CLK, input logic RST, ICore coreIntf, IALU aluIntf);
   parameter HIGH_IMPEDANCE = 1'bZ;
   parameter STATE_ENABLE = 1'b1;
 
@@ -182,15 +196,15 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
   } state_index_t;
   logic [9:0] state, next;
 
-  function void execute();
-    coreIntf.decodeTrigger <= STATE_ENABLE;
-  endfunction
+  // task execute();
+  //   coreIntf.decodeTrigger <= STATE_ENABLE;
+  // endtask
 
   // IDLEへ戻るか、DECODEへ遷移するかを決める
-  function void toIdleIfNotTriggered(logic triggerState);
+  task toIdleIfNotTriggered(logic triggerState);
     if (coreIntf.decodeTrigger) next[triggerState] = STATE_ENABLE;
     else next[IDLE] = STATE_ENABLE;
-  endfunction
+  endtask
 
   // Sequential state transition
   always_ff @(posedge CLK, negedge RST) begin
@@ -211,9 +225,6 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
       end
 
       state[DECODE] : begin
-        // cache instruction
-        coreIntf.ir = coreIntf.buffer;
-
         case (coreIntf.buffer[7:4])
           // 1byte ir or ref imm ir (2bytes)
           4'h0: begin
@@ -262,6 +273,11 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     end
     else begin
       unique case (STATE_ENABLE)
+        next[DECODE] : begin
+			 // cache instruction
+		    coreIntf.ir <= coreIntf.buffer;
+        end
+
         next[EX_LOGIC_0] : begin
           aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
           coreIntf.do_decode_fetch();
@@ -281,12 +297,12 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     end
   end
 
-  always_ff @(posedge CLK, negedge RST) begin
-    if (coreIntf.decodeTrigger) coreIntf.decodeTrigger <= 0;
-  end
+  // always_ff @(posedge CLK) begin
+  //   if (coreIntf.decodeWire) coreIntf.decodeTrigger2 <= 0;
+  // end
 
   // Assign ALU output to each register here
-  always_comb begin
+  always_latch begin
     if (state[EX_LOGIC_0] == STATE_ENABLE) begin
       coreIntf.acc = aluIntf.out.F;
       if (coreIntf.ir[3:0] != coreIntf.ALU_LOGIC_NOP) coreIntf.ZFReg = aluIntf.out.ZeroFlag;
