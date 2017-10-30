@@ -109,11 +109,13 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
     end
     else begin
       unique case (STATE_ENABLE)
+        // take in PC and output mem data to uniBus, and then PC++ with ALU
         next[ST0] : begin
           memIntf.takeIn(memIntf.READ, coreIntf.pc);
           aluIntf.execute(coreIntf.ALU_MODE_ARITHOP, coreIntf.ALU_ARITH_INC, coreIntf.pc, coreIntf.buffer, coreIntf.ALU_CARRY_LOW);
           // coreIntf.pc <= coreIntf.pc + 1;
         end
+        // mem data --> buffer
         next[ST1] : begin
           coreIntf.buffer <= memIntf.uniBus;
         end

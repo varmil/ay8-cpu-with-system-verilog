@@ -19,7 +19,6 @@ interface IALU();
     A <= AArg;
     B <= BArg;
     CarryIn <= CarryInArg;
-    // return out;
   endfunction
 endinterface
 
