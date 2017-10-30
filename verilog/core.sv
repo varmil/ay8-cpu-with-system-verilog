@@ -122,10 +122,13 @@ module fetch(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU aluIntf
           aluIntf.execute(coreIntf.ALU_MODE_ARITHOP, coreIntf.ALU_ARITH_INC, coreIntf.pc, coreIntf.buffer, coreIntf.ALU_CARRY_LOW);
           // coreIntf.pc <= coreIntf.pc + 1;
         end
+
         // mem data --> buffer
         next[ST1] : begin
           coreIntf.buffer <= memIntf.uniBus;
         end
+
+        default: ;
       endcase
     end
   end
@@ -256,6 +259,8 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
           aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
           coreIntf.do_decode_fetch();
         end
+
+        default: ;
       endcase
     end
   end
