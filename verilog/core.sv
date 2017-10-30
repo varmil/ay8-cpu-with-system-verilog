@@ -44,9 +44,16 @@ interface ICore();
   logic fetchTrigger = 0;
   logic decodeTrigger = 0;
   function void do_decode_fetch();
+    invoke_fetch();
+    invoke_decode();
+  endfunction
+  function void invoke_fetch();
     fetchTrigger <= 1'b1;
+  endfunction
+  function void invoke_decode();
     decodeTrigger <= 1'b1;
   endfunction
+
 
 endinterface
 
@@ -152,8 +159,7 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     EX_DO_LOGIC     = 5,
     EX_LOGIC_REF    = 6,
     EX_LOGIC_REF_1  = 7,
-    EX_LOGIC_REF_2  = 8,
-    SEQUENCE        = 9
+    EX_LOGIC_REF_2  = 8
   } state_index_t;
   logic [9:0] state, next;
 
@@ -214,6 +220,19 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
         toIdleIfNotTriggered(DECODE);
       end // EX_LOGIC_0
 
+      state[EX_LOGIC_IMM]: begin
+        next[EX_LOGIC_WAIT] = STATE_ENABLE;
+      end // EX_LOGIC_IMM
+
+      state[EX_LOGIC_WAIT]: begin
+        // ALU is using by fetch for invrement PC
+        next[EX_DO_LOGIC] = STATE_ENABLE;
+      end // EX_LOGIC_WAIT
+
+      state[EX_DO_LOGIC]: begin
+        toIdleIfNotTriggered(DECODE);
+      end // EX_DO_LOGIC
+
       default: next[IDLE] = STATE_ENABLE;
     endcase
   end
@@ -225,6 +244,15 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     else begin
       unique case (STATE_ENABLE)
         next[EX_LOGIC_0] : begin
+          aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
+          coreIntf.do_decode_fetch();
+        end
+
+        next[EX_LOGIC_IMM] : begin
+          coreIntf.invoke_fetch();
+        end
+
+        next[EX_DO_LOGIC] : begin
           aluIntf.execute(coreIntf.ALU_MODE_LOGICFUNC, coreIntf.ir[3:0], coreIntf.acc, coreIntf.buffer, coreIntf.ALU_CARRY_HIGH);
           coreIntf.do_decode_fetch();
         end
@@ -241,6 +269,11 @@ module decode_exec(logic CLK, logic RST, IMemory memIntf, ICore coreIntf, IALU a
     if (state[EX_LOGIC_0] == STATE_ENABLE) begin
       coreIntf.acc = aluIntf.out.F;
       if (coreIntf.ir[3:0] != coreIntf.ALU_LOGIC_NOP) coreIntf.ZFReg = aluIntf.out.ZeroFlag;
+    end
+
+    if (state[EX_DO_LOGIC] == STATE_ENABLE) begin
+      coreIntf.acc = aluIntf.out.F;
+      coreIntf.ZFReg = aluIntf.out.ZeroFlag;
     end
   end
 
